@@ -1,132 +1,141 @@
-import threading
+from enum import Enum
+import copy
 
 import numpy as np
 
+from stable_baselines.deepq.replay_buffer import ReplayBuffer
 
-class ReplayBuffer:
-    def __init__(self, buffer_shapes, size_in_transitions, time_horizon, sample_transitions):
+
+class GoalSelectionStrategy(Enum):
+    FUTURE = 0
+    FINAL = 1
+    EPISODE = 2
+    RANDOM = 3
+
+
+class HindsightExperienceReplayBuffer(ReplayBuffer):
+    def __init__(self, size, n_sampled_goal, goal_selection_strategy, env):
         """
-        Creates a replay buffer.
 
-        :param buffer_shapes: ({str: int}) the shape for all buffers that are used in the replay buffer
-        :param size_in_transitions: (int) the size of the buffer, measured in transitions
-        :param time_horizon: (int) the time horizon for episodes
-        :param sample_transitions: (function) a function that samples from the replay buffer
+        Inspired by https://github.com/NervanaSystems/coach/.
+
+        :param size: (int)  Max number of transitions to store in the buffer. When the buffer overflows the old
+            memories are dropped.
+        :param n_sampled_goal: The number of artificial transitions to generate for each actual transition
+        :param goal_selection_strategy: The method that will be used for generating the goals for the
+                                                hindsight transitions. Should be one of GoalSelectionStrategy
+        :param env:
         """
-        self.buffer_shapes = buffer_shapes
-        self.size = size_in_transitions // time_horizon
-        self.time_horizon = time_horizon
-        self.sample_transitions = sample_transitions
+        super(HER, self).__init__(size)
+        self.n_sampled_goal = n_sampled_goal
+        self.goal_selection_strategy = goal_selection_strategy
+        self.env = env
+        self.current_episode = []
+        self.get_achieved_goal = None
 
-        # self.buffers is {key: array(size_in_episodes x T or T+1 x dim_key)}
-        self.buffers = {key: np.empty([self.size, *shape])
-                        for key, shape in buffer_shapes.items()}
-
-        # memory management
-        self.current_size = 0
-        self.n_transitions_stored = 0
-
-        self.lock = threading.Lock()
-
-    @property
-    def full(self):
-        with self.lock:
-            return self.current_size == self.size
-
-    def sample(self, batch_size):
+    def add(self, obs_t, action, reward, obs_tp1, done):
         """
-        sample random transitions
+        add a new transition to the buffer
 
-        :param batch_size: (int) How many transitions to sample.
-        :return: (dict) {key: array(batch_size x shapes[key])}
+        :param obs_t: (Any) the last observation
+        :param action: ([float]) the action
+        :param reward: (float) the reward of the transition
+        :param obs_tp1: (Any) the current observation
+        :param done: (bool) is the episode done
         """
-        buffers = {}
+        self.current_episode.append((obs_t, action, reward, obs_tp1, done))
+        if done:
+            # Add transitions (and imagined ones) to buffer only when an episode is over
+            self._store_episode()
+            self.current_episode = []
 
-        with self.lock:
-            assert self.current_size > 0
-            for key in self.buffers.keys():
-                buffers[key] = self.buffers[key][:self.current_size]
+    # def _encode_sample(self, idxes):
+    #     obses_t, actions, rewards, obses_tp1, dones = [], [], [], [], []
+    #     for i in idxes:
+    #         data = self._storage[i]
+    #         obs_t, action, reward, obs_tp1, done = data
+    #         obses_t.append(np.array(obs_t, copy=False))
+    #         actions.append(np.array(action, copy=False))
+    #         rewards.append(reward)
+    #         obses_tp1.append(np.array(obs_tp1, copy=False))
+    #         dones.append(done)
+    #     return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
+    #
 
-        buffers['o_2'] = buffers['o'][:, 1:, :]
-        buffers['ag_2'] = buffers['ag'][:, 1:, :]
-
-        transitions = self.sample_transitions(buffers, batch_size)
-
-        for key in (['r', 'o_2', 'ag_2'] + list(self.buffers.keys())):
-            assert key in transitions, "key %s missing from transitions" % key
-
-        return transitions
-
-    def store_episode(self, episode_batch):
+    def _sample_goal(self, episode_transitions, transition_idx):
         """
-        Store an episode in the replay buffer
+        Sample an achieved goal according to the sampling method.
 
-        :param episode_batch: (np.ndarray) batch_size x (T or T+1) x dim_key
+        :param episode_transitions: a list of all the transitions in the current episode
+        :param transition_idx: the transition to start sampling from
+        :return: (np.ndarray) an achieved goal
         """
-        batch_sizes = [len(episode_batch[key]) for key in episode_batch.keys()]
-        assert np.all(np.array(batch_sizes) == batch_sizes[0])
-        batch_size = batch_sizes[0]
-
-        with self.lock:
-            idxs = self._get_storage_idx(batch_size)
-
-            # load inputs into buffers
-            for key in self.buffers.keys():
-                self.buffers[key][idxs] = episode_batch[key]
-
-            self.n_transitions_stored += batch_size * self.time_horizon
-
-    def get_current_episode_size(self):
-        """
-        get current episode size
-
-        :return: (int) the current size of the episode
-        """
-        with self.lock:
-            return self.current_size
-
-    def get_current_size(self):
-        """
-        get current size of the buffer
-
-        :return: (int) the current size of the buffer
-        """
-        with self.lock:
-            return self.current_size * self.time_horizon
-
-    def get_transitions_stored(self):
-        """
-        get the number of stored transitions
-
-        :return: (int) the number of transitions stored
-        """
-        with self.lock:
-            return self.n_transitions_stored
-
-    def clear_buffer(self):
-        """
-        clear the buffer of all entries
-        """
-        with self.lock:
-            self.current_size = 0
-
-    def _get_storage_idx(self, inc=None):
-        inc = inc or 1  # size increment
-        assert inc <= self.size, "Batch committed to replay is too large!"
-        # go consecutively until you hit the end, and then go randomly.
-        if self.current_size + inc <= self.size:
-            idx = np.arange(self.current_size, self.current_size + inc)
-        elif self.current_size < self.size:
-            overflow = inc - (self.size - self.current_size)
-            idx_a = np.arange(self.current_size, self.size)
-            idx_b = np.random.randint(0, self.current_size, overflow)
-            idx = np.concatenate([idx_a, idx_b])
+        if self.goal_selection_strategy == GoalSelectionStrategy.FUTURE:
+            # Sample a goal that was observed in the same episode after the current step
+            selected_obs = np.random.choice(episode_transitions[transition_idx + 1:])
+        elif self.goal_selection_strategy == GoalSelectionStrategy.FINAL:
+            # The achieved goal at the end of the episode
+            selected_obs = episode_transitions[-1]
+        elif self.goal_selection_strategy == GoalSelectionStrategy.EPISODE:
+            # Random achieved goal during the episode
+            selected_obs = np.random.choice(episode_transitions)
+        elif self.goal_selection_strategy == GoalSelectionStrategy.RANDOM:
+            # Random achieved goal from the entire replay buffer
+            # selected_obs = np.random.choice(self._storage)
+            raise NotImplementedError()
         else:
-            idx = np.random.randint(0, self.size, inc)
+            raise ValueError("Invalid goal selection strategy,"
+                             "please use one of {}".format(list(GoalSelectionStrategy)))
+        return self.get_achieved_goal(selected_obs)
 
-        # update replay size
-        self.current_size = min(self.size, self.current_size + inc)
+    def _sample_goals(self, episode_transitions, transition_idx):
+        """
+        Sample a batch of achieved goal according to the sampling strategy.
 
-        if inc == 1:
-            idx = idx[0]
-        return idx
+        :param episode_transitions: () a list of all the transitions in the current episode
+        :param transition_idx: the transition to start sampling from
+        :return: a goal corresponding to the sampled obs
+        """
+        return [
+            self._sample_goal(episode_transitions, transition_idx)
+            for _ in range(self.n_sampled_goal)
+        ]
+
+    def _store_episode(self):
+        last_episode_transitions = copy.deepcopy(self.current_episode)
+
+        # for each transition in the last episode, create a set of hindsight transitions
+        for transition_idx, transition in enumerate(last_episode_transitions):
+
+            obs_t, action, reward, obs_tp1, done = transition
+            # Add to the replay buffer
+            super().add(obs_t, action, reward, obs_tp1, done)
+            # We cannot sample a goal from the future in the last step of an episode
+            if (transition_idx == len(last_episode_transitions) - 1 and
+                self.goal_selection_strategy == GoalSelectionStrategy.FUTURE):
+                break
+
+            # Sampled n goals per transition, where n is `n_sampled_goal`
+            # this is called k in the paper
+            sampled_goals = self._sample_goals(last_episode_transitions, transition_idx)
+            # For each sampled goals, store a new transition
+            for goal in sampled_goals:
+                obs, action, reward, next_obs, done = copy.deepcopy(transition)
+
+                # Convert concatenated obs to dict
+                # so we can update the goals
+                obs_dict, next_obs_dict = map(self.env.convert_obs_to_dict, (obs, next_obs))
+
+                # update the desired goal in the transition
+                obs_dict['desired_goal'] = goal
+                next_obs_dict['desired_goal'] = goal
+
+                # update the reward and terminal signal according to the goal
+                reward = self.env.compute_reward(goal, next_obs_dict['achieved_goal'])
+                # Can we ensure that done = reward == 0
+                done = False
+
+                obs, next_obs = map(self.env.convert_dict_to_obs, (obs_dict, next_obs_dict))
+
+                # Add to the replay buffer
+                super().add(obs, action, reward, next_obs, done)
