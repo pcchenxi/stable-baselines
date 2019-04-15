@@ -143,7 +143,7 @@ class DQN(OffPolicyRLModel):
                 self.summary = tf.summary.merge_all()
 
     def learn(self, total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="DQN",
-              reset_num_timesteps=True):
+              reset_num_timesteps=True, replay_wrapper=None):
 
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
 
@@ -164,6 +164,12 @@ class DQN(OffPolicyRLModel):
             else:
                 self.replay_buffer = ReplayBuffer(self.buffer_size)
                 self.beta_schedule = None
+
+            if replay_wrapper is not None:
+                assert not self.prioritized_replay, "Prioritized replay buffer is not supported by HER"
+                self.replay_buffer = replay_wrapper(self.replay_buffer)
+
+
             # Create the schedule for exploration starting from 1.
             self.exploration = LinearSchedule(schedule_timesteps=int(self.exploration_fraction * total_timesteps),
                                               initial_p=1.0,

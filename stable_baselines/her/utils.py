@@ -1,14 +1,16 @@
 import numpy as np
 from gym import spaces
 
+
 class HERGoalEnvWrapper(object):
     """docstring for HERGoalEnvWrapper."""
 
     def __init__(self, env):
         super(HERGoalEnvWrapper, self).__init__()
         self.env = env
+        self.metadata = self.env.metadata
         self.action_space = env.action_space
-        self.spaces = env.observation_space.spaces.values()
+        self.spaces = list(env.observation_space.spaces.values())
         # TODO: check that all spaces are of the same type
         # (current limiation of the wrapper)
         # TODO: check when dim > 1
@@ -26,9 +28,9 @@ class HERGoalEnvWrapper(object):
             raise NotImplementedError()
 
     @staticmethod
-	def convert_dict_to_obs(obs_dict):
+    def convert_dict_to_obs(obs_dict):
         # Note: we should remove achieved goal from the observation ?
-		return np.concatenate([obs for obs in obs_dict.values()])
+        return np.concatenate([obs for obs in obs_dict.values()])
 
     def convert_obs_to_dict(self, observations):
         return {
@@ -37,18 +39,21 @@ class HERGoalEnvWrapper(object):
             'desired_goal': observations[self.obs_dim + self.goal_dim:],
         }
 
-	def step(self, action):
-		obs, reward, done, info = self.env.step(action)
-		return self.convert_dict_to_obs(obs), reward, done, info
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return self.convert_dict_to_obs(obs), reward, done, info
 
-	def seed(self, seed=None):
-		return self.env.seed(seed)
+    def seed(self, seed=None):
+        return self.env.seed(seed)
 
-	def reset(self):
-		return self.convert_dict_to_obs(self.env.reset())
+    def reset(self):
+        return self.convert_dict_to_obs(self.env.reset())
 
-	def render(self, mode='human'):
-		return self.env.render(mode)
+    def compute_reward(self, achieved_goal, desired_goal, info):
+        return self.env.compute_reward(achieved_goal, desired_goal, info)
 
-	def close(self):
-		self.env.close()
+    def render(self, mode='human'):
+        return self.env.render(mode)
+
+    def close(self):
+        return self.env.close()

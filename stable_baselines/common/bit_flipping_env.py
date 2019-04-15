@@ -61,15 +61,14 @@ class BitFlippingEnv(GoalEnv):
         done = done or self.current_step >= self.max_steps
         return obs, reward, done, {}
 
-    @staticmethod
-    def compute_reward(achieved_goal, desired_goal, _info):
+    def compute_reward(self, achieved_goal, desired_goal, _info):
         # Deceptive reward: it is positive only when the goal is achieved
         return 0 if (achieved_goal == desired_goal).all() else -1
 
-    def render(mode='human'):
+    def render(self, mode='human'):
         if mode == 'rgb_array':
             return self.state.copy()
         print(self.state)
 
-    def close():
+    def close(self):
         pass
