@@ -10,6 +10,8 @@ Pre-Release 2.5.1a0 (WIP)
 
 - doc update (fix example of result plotter + improve doc)
 - fixed logger issues when stdout lacks ``read`` function
+- **deprecated** ``memory_limit`` and ``memory_policy`` in DDPG, please use ``buffer_size`` instead. (will be removed in v3.x.x)
+- removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer``
 
 
 Release 2.5.0 (2019-03-28)

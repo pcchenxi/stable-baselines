@@ -9,7 +9,14 @@ from .utils import HERGoalEnvWrapper
 
 class HER(BaseRLModel):
     """
-    Hindsight Experience replay.
+    Hindsight Experience Replay (HER) https://arxiv.org/abs/1707.01495
+
+    :param policy: (BasePolicy or str) The policy model to use (MlpPolicy, CnnPolicy, CnnLstmPolicy, ...)
+    :param env: (Gym environment or str) The environment to learn from (if registered in Gym, can be str)
+    :param model_class: (OffPolicyRLModel) The off policy RL model to apply Hindsight Experience Replay
+        currently supported: DQN, DDPG, SAC
+    :param n_sampled_goal: (int)
+    :param goal_selection_strategy: (GoalSelectionStrategy or str)
     """
 
     def __init__(self, policy, env, model_class, n_sampled_goal=4,
@@ -18,11 +25,14 @@ class HER(BaseRLModel):
 
         self.model_class = model_class
         self.env = env
-        assert isinstance(self.env, gym.GoalEnv), "HER only supports gym.GoalEnv"
+        # TODO: check for TimeLimit wrapper too
+        # assert isinstance(self.env, gym.GoalEnv), "HER only supports gym.GoalEnv"
         self.wrapped_env = HERGoalEnvWrapper(env)
+
         if isinstance(goal_selection_strategy, str):
             assert goal_selection_strategy in KEY_TO_GOAL_STRATEGY.keys()
             goal_selection_strategy = KEY_TO_GOAL_STRATEGY[goal_selection_strategy]
+
         self.replay_wrapper = functools.partial(HindsightExperienceReplayWrapper, n_sampled_goal=n_sampled_goal,
                                                 goal_selection_strategy=goal_selection_strategy,
                                                 wrapped_env=self.wrapped_env)

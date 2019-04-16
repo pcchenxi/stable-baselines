@@ -14,16 +14,23 @@ class HERGoalEnvWrapper(object):
         # TODO: check that all spaces are of the same type
         # (current limiation of the wrapper)
         # TODO: check when dim > 1
+
+        goal_space_shape = env.observation_space.spaces['achieved_goal'].shape
         self.obs_dim = env.observation_space.spaces['observation'].shape[0]
-        self.goal_dim = env.observation_space.spaces['achieved_goal'].shape[0]
+        self.goal_dim = goal_space_shape[0]
         total_dim = self.obs_dim + 2 * self.goal_dim
+
+        if len(goal_space_shape) == 2:
+            assert  goal_space_shape[1] == 1
+        else:
+            assert len(goal_space_shape) == 1
 
         if isinstance(self.spaces[0], spaces.MultiBinary):
             self.observation_space = spaces.MultiBinary(total_dim)
         elif isinstance(self.spaces[0], spaces.Box):
-            # total_dim = np.sum([space.shape[0] for space in self.spaces])
-            # self.observation_space = spaces.Box(-np.inf, np.inf, shape=(total_dim, ), dtype=np.float32)
-            raise NotImplementedError()
+            lows = np.concatenate([space.low for space in self.spaces])
+            highs = np.concatenate([space.high for space in self.spaces])
+            self.observation_space = spaces.Box(lows, highs, dtype=np.float32)
         else:
             raise NotImplementedError()
 

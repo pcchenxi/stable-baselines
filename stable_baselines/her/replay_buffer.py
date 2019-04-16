@@ -11,6 +11,7 @@ class GoalSelectionStrategy(Enum):
     RANDOM = 3
 
 
+# For convenience
 KEY_TO_GOAL_STRATEGY = {
     'future': GoalSelectionStrategy.FUTURE,
     'final': GoalSelectionStrategy.FINAL,
@@ -20,22 +21,32 @@ KEY_TO_GOAL_STRATEGY = {
 
 
 class HindsightExperienceReplayWrapper(object):
-    def __init__(self, replay_buffer, n_sampled_goal, goal_selection_strategy, wrapped_env):
-        """
-        Inspired by https://github.com/NervanaSystems/coach/.
+    """
+    Wrapper around a replay buffer in order to use HER.
+    This implementation is close to the one found in https://github.com/NervanaSystems/coach/.
 
-        :param n_sampled_goal: The number of artificial transitions to generate for each actual transition
-        :param goal_selection_strategy: The method that will be used for generating the goals for the
-                                                hindsight transitions. Should be one of GoalSelectionStrategy
-        :param wrapped_env:
-        """
+    :param replay_buffer: (ReplayBuffer)
+    :param n_sampled_goal: (int) The number of artificial transitions to generate for each actual transition
+    :param goal_selection_strategy: (GoalSelectionStrategy) The method that will be used to generate
+        the goals for the artificial transitions.
+    :param wrapped_env: (HERGoalEnvWrapper)
+    """
+
+    def __init__(self, replay_buffer, n_sampled_goal, goal_selection_strategy, wrapped_env):
         super(HindsightExperienceReplayWrapper, self).__init__()
         self.n_sampled_goal = n_sampled_goal
-        assert isinstance(goal_selection_strategy, GoalSelectionStrategy)
+
+        assert isinstance(goal_selection_strategy, GoalSelectionStrategy), "Invalid goal selection strategy," \
+                                                                           "please use one of {}".format(
+            list(GoalSelectionStrategy))
+
         self.goal_selection_strategy = goal_selection_strategy
         self.env = wrapped_env
         self.current_episode = []
         self.replay_buffer = replay_buffer
+
+    def append(self, obs_t, action, reward, obs_tp1, done):
+        return self.add(obs_t, action, reward, obs_tp1, done)
 
     def add(self, obs_t, action, reward, obs_tp1, done):
         """
@@ -48,6 +59,7 @@ class HindsightExperienceReplayWrapper(object):
         :param done: (bool) is the episode done
         """
         assert self.replay_buffer is not None
+        # Update current episode buffer
         self.current_episode.append((obs_t, action, reward, obs_tp1, done))
         if done:
             # Add transitions (and imagined ones) to buffer only when an episode is over
@@ -62,10 +74,10 @@ class HindsightExperienceReplayWrapper(object):
 
     def _sample_goal(self, episode_transitions, transition_idx):
         """
-        Sample an achieved goal according to the sampling method.
+        Sample an achieved goal according to the sampling strategy.
 
-        :param episode_transitions: a list of all the transitions in the current episode
-        :param transition_idx: the transition to start sampling from
+        :param episode_transitions: ([tuple]) a list of all the transitions in the current episode
+        :param transition_idx: (int) the transition to start sampling from
         :return: (np.ndarray) an achieved goal
         """
         if self.goal_selection_strategy == GoalSelectionStrategy.FUTURE:
@@ -92,9 +104,9 @@ class HindsightExperienceReplayWrapper(object):
         """
         Sample a batch of achieved goal according to the sampling strategy.
 
-        :param episode_transitions: () a list of all the transitions in the current episode
-        :param transition_idx: the transition to start sampling from
-        :return: a goal corresponding to the sampled obs
+        :param episode_transitions: ([tuple]) a list of all the transitions in the current episode
+        :param transition_idx: (int) the transition to start sampling from
+        :return: (np.ndarray) a goal corresponding to the sampled obs
         """
         return [
             self._sample_goal(episode_transitions, transition_idx)
@@ -102,9 +114,14 @@ class HindsightExperienceReplayWrapper(object):
         ]
 
     def _store_episode(self):
+        """
+        Sample artificial goals and store transition of the current
+        episode in the replay buffer.
+        This method is called only after each end of episode.
+        """
         last_episode_transitions = copy.deepcopy(self.current_episode)
 
-        # for each transition in the last episode, create a set of hindsight transitions
+        # For each transition in the last episode, create a set of hindsight transitions
         for transition_idx, transition in enumerate(last_episode_transitions):
 
             obs_t, action, reward, obs_tp1, done = transition
