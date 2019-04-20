@@ -5,13 +5,26 @@ import numpy as np
 
 
 class GoalSelectionStrategy(Enum):
+    """
+    The strategies for selecting new goals when
+    creating artificial transitions.
+    """
+    # Select a goal that was achieved
+    # after the current step, in the same episode
     FUTURE = 0
+    # Select the goal that was achieved
+    # at the end of the episode
     FINAL = 1
+    # Select a goal that was achieved in the episode
     EPISODE = 2
+    # Select a goal that was achieved
+    # at some point in the training procedure
+    # (and that is present in the replay buffer)
     RANDOM = 3
 
 
 # For convenience
+# that way, we can use string to select a strategy
 KEY_TO_GOAL_STRATEGY = {
     'future': GoalSelectionStrategy.FUTURE,
     'final': GoalSelectionStrategy.FINAL,
@@ -29,7 +42,8 @@ class HindsightExperienceReplayWrapper(object):
     :param n_sampled_goal: (int) The number of artificial transitions to generate for each actual transition
     :param goal_selection_strategy: (GoalSelectionStrategy) The method that will be used to generate
         the goals for the artificial transitions.
-    :param wrapped_env: (HERGoalEnvWrapper)
+    :param wrapped_env: (HERGoalEnvWrapper) the GoalEnv wrapped using HERGoalEnvWrapper,
+        that enables to convert observation to dict, and vice versa
     """
 
     def __init__(self, replay_buffer, n_sampled_goal, goal_selection_strategy, wrapped_env):
@@ -72,7 +86,7 @@ class HindsightExperienceReplayWrapper(object):
     def __len__(self):
         return len(self.replay_buffer)
 
-    def _sample_goal(self, episode_transitions, transition_idx):
+    def _sample_achieved_goal(self, episode_transitions, transition_idx):
         """
         Sample an achieved goal according to the sampling strategy.
 
@@ -100,7 +114,7 @@ class HindsightExperienceReplayWrapper(object):
                              "please use one of {}".format(list(GoalSelectionStrategy)))
         return self.env.convert_obs_to_dict(selected_transition[0])['achieved_goal']
 
-    def _sample_goals(self, episode_transitions, transition_idx):
+    def _sample_achieved_goals(self, episode_transitions, transition_idx):
         """
         Sample a batch of achieved goal according to the sampling strategy.
 
@@ -109,7 +123,7 @@ class HindsightExperienceReplayWrapper(object):
         :return: (np.ndarray) a goal corresponding to the sampled obs
         """
         return [
-            self._sample_goal(episode_transitions, transition_idx)
+            self._sample_achieved_goal(episode_transitions, transition_idx)
             for _ in range(self.n_sampled_goal)
         ]
 
@@ -134,7 +148,7 @@ class HindsightExperienceReplayWrapper(object):
 
             # Sampled n goals per transition, where n is `n_sampled_goal`
             # this is called k in the paper
-            sampled_goals = self._sample_goals(last_episode_transitions, transition_idx)
+            sampled_goals = self._sample_achieved_goals(last_episode_transitions, transition_idx)
             # For each sampled goals, store a new transition
             for goal in sampled_goals:
                 obs, action, reward, next_obs, done = copy.deepcopy(transition)

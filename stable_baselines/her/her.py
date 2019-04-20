@@ -23,6 +23,7 @@ class HER(BaseRLModel):
                  goal_selection_strategy='future', *args, **kwargs):
         # super().__init__(policy=policy, env=env, verbose=verbose, policy_base=None, requires_vec_env=False)
 
+        # TODO: check if the env is not already wrapped
         self.model_class = model_class
         self.env = env
         # TODO: check for TimeLimit wrapper too
@@ -38,8 +39,32 @@ class HER(BaseRLModel):
                                                 wrapped_env=self.wrapped_env)
         self.model = self.model_class(policy, self.wrapped_env, *args, **kwargs)
 
+    def set_env(self, env):
+        self.env = env
+        self.wrapped_env = HERGoalEnvWrapper(env)
+        self.model.set_env(self.wrapped_env)
+
+    def get_env(self):
+        return self.wrapped_env
+
+    def __getattr__(self, attr):
+        """
+        Wrap the RL model.
+        :param attr: (str)
+        :return: (Any)
+        """
+        if attr in self.__dict__:
+            return getattr(self, attr)
+        return getattr(self.model, attr)
+
+    def __set_attr__(self, attr, value):
+        if attr in self.__dict__:
+            setattr(self, attr, value)
+        else:
+            set_attr(self.model, attr, value)
+
     def _get_pretrain_placeholders(self):
-        raise NotImplementedError()
+        return self.model._get_pretrain_placeholders()
 
     def setup_model(self):
         pass
@@ -49,11 +74,12 @@ class HER(BaseRLModel):
         return self.model.learn(total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="HER",
                                 reset_num_timesteps=True, replay_wrapper=self.replay_wrapper)
 
-    def predict(self, observation, state=None, mask=None, deterministic=False):
-        pass
+    def predict(self, observation, state=None, mask=None, deterministic=True):
+        # TODO: assert the type of observation
+        return self.model.predict(observation, state, mask, deterministic)
 
     def action_probability(self, observation, state=None, mask=None, actions=None):
-        pass
+        return self.model.action_probability(observation, state, mask, actions)
 
     def save(self, save_path):
         pass

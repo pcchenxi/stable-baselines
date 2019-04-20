@@ -3,7 +3,12 @@ from gym import spaces
 
 
 class HERGoalEnvWrapper(object):
-    """docstring for HERGoalEnvWrapper."""
+    """
+    A wrapper that allow to use dict env (coming from GoalEnv) with
+    the RL algorithms.
+
+    :param env: (gym.GoalEnv)
+    """
 
     def __init__(self, env):
         super(HERGoalEnvWrapper, self).__init__()
@@ -31,15 +36,25 @@ class HERGoalEnvWrapper(object):
             lows = np.concatenate([space.low for space in self.spaces])
             highs = np.concatenate([space.high for space in self.spaces])
             self.observation_space = spaces.Box(lows, highs, dtype=np.float32)
+        elif isinstance(self.spaces[0], spaces.Discrete):
+            pass
         else:
             raise NotImplementedError()
 
     @staticmethod
     def convert_dict_to_obs(obs_dict):
+        """
+        :param obs_dict: (dict<np.ndarray>)
+        :return: (np.ndarray)
+        """
         # Note: we should remove achieved goal from the observation ?
         return np.concatenate([obs for obs in obs_dict.values()])
 
     def convert_obs_to_dict(self, observations):
+        """
+        :param observations: (np.ndarray)
+        :return: (dict<np.ndarray>)
+        """
         return {
             'observation': observations[:self.obs_dim],
             'achieved_goal': observations[self.obs_dim:self.obs_dim + self.goal_dim],
