@@ -53,6 +53,8 @@ class SAC(OffPolicyRLModel):
     :param target_update_interval: (int) update the target network every `target_network_update_freq` steps.
     :param gradient_steps: (int) How many gradient update after each step
     :param target_entropy: (str or float) target entropy when learning ent_coef (ent_coef = 'auto')
+    :param action_noise: (ActionNoise) the action noise type (None by default), this can help
+        for hard exploration problem. Cf DDPG for the different action noise type.
     :param verbose: (int) the verbosity level: 0 none, 1 training information, 2 tensorflow debug
     :param tensorboard_log: (str) the log location for tensorboard (if None, no logging)
     :param _init_setup_model: (bool) Whether or not to build the network at the creation of the instance
@@ -64,7 +66,8 @@ class SAC(OffPolicyRLModel):
     def __init__(self, policy, env, gamma=0.99, learning_rate=3e-4, buffer_size=50000,
                  learning_starts=100, train_freq=1, batch_size=64,
                  tau=0.005, ent_coef='auto', target_update_interval=1,
-                 gradient_steps=1, target_entropy='auto', verbose=0, tensorboard_log=None,
+                 gradient_steps=1, target_entropy='auto', action_noise=None,
+                 verbose=0, tensorboard_log=None,
                  _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False):
 
         super(SAC, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose,
@@ -86,6 +89,7 @@ class SAC(OffPolicyRLModel):
         self.target_update_interval = target_update_interval
         self.gradient_steps = gradient_steps
         self.gamma = gamma
+        self.action_noise = action_noise
 
         self.value_fn = None
         self.graph = None
@@ -371,6 +375,8 @@ class SAC(OffPolicyRLModel):
 
             start_time = time.time()
             episode_rewards = [0.0]
+            if self.action_noise is not None:
+                self.action_noise.reset()
             obs = self.env.reset()
             self.episode_reward = np.zeros((1,))
             ep_info_buf = deque(maxlen=100)
@@ -393,6 +399,10 @@ class SAC(OffPolicyRLModel):
                     rescaled_action = action
                 else:
                     action = self.policy_tf.step(obs[None], deterministic=False).flatten()
+                    # Add noise to the action (improve exploration,
+                    # not needed in general)
+                    if self.action_noise is not None:
+                        action = np.clip(action + self.action_noise(), -1, 1)
                     # Rescale from [-1, 1] to the correct bounds
                     rescaled_action = action * np.abs(self.action_space.low)
 
@@ -438,6 +448,8 @@ class SAC(OffPolicyRLModel):
 
                 episode_rewards[-1] += reward
                 if done:
+                    if self.action_noise is not None:
+                        self.action_noise.reset()
                     if not isinstance(self.env, VecEnv):
                         obs = self.env.reset()
                     episode_rewards.append(0.0)
@@ -518,6 +530,7 @@ class SAC(OffPolicyRLModel):
             "action_space": self.action_space,
             "policy": self.policy,
             "n_envs": self.n_envs,
+            "action_noise": self.action_noise,
             "_vectorize_action": self._vectorize_action,
             "policy_kwargs": self.policy_kwargs
         }
