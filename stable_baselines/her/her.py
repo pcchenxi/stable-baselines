@@ -27,6 +27,7 @@ class HER(BaseRLModel):
         self.model_class = model_class
         self.env = env
         # TODO: check for TimeLimit wrapper too
+        # TODO: support VecEnv
         # assert isinstance(self.env, gym.GoalEnv), "HER only supports gym.GoalEnv"
         self.wrapped_env = HERGoalEnvWrapper(env)
 
@@ -81,9 +82,30 @@ class HER(BaseRLModel):
     def action_probability(self, observation, state=None, mask=None, actions=None):
         return self.model.action_probability(observation, state, mask, actions)
 
+    # def _save_to_file(self, save_path, data=None, params=None):
+    #     # HACK to save the replay wrapper
+    #     # or better to save only the replay strategy and its params?
+    #     # it will not work with VecEnv
+    #     data['replay_wrapper'] = self.replay_wrapper
+    #     data['model_class'] = self.model_class
+    #     super()._save_to_file(save_path, data, params)
+
     def save(self, save_path):
-        pass
+        # Is there something more to save? (the replay wrapper?)
+        self.model.save(save_path)
 
     @classmethod
     def load(cls, load_path, env=None, **kwargs):
         pass
+        # data, params = cls._load_from_file(load_path)
+        #
+        # if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
+        #     raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
+        #                      "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
+        #                                                                       kwargs['policy_kwargs']))
+        #
+        # model = cls(policy=data["policy"], env=env, model_class=data['model_class'], _init_setup_model=False)
+        # model.__dict__.update(data)
+        # model.__dict__.update(kwargs)
+        # model.model = data['model_class'].load(load_path, model.get_env())
+        # return model

@@ -86,8 +86,8 @@ def run(env_id, seed, noise_type, layer_norm, evaluation, **kwargs):
     num_timesteps = kwargs['num_timesteps']
     del kwargs['num_timesteps']
 
-    model = DDPG(policy=policy, env=env, memory_policy=Memory, eval_env=eval_env, param_noise=param_noise,
-                 action_noise=action_noise, memory_limit=int(1e6), verbose=2, **kwargs)
+    model = DDPG(policy=policy, env=env, eval_env=eval_env, param_noise=param_noise,
+                 action_noise=action_noise, buffer_size=int(1e6), verbose=2, **kwargs)
     model.learn(total_timesteps=num_timesteps)
     env.close()
     if eval_env is not None:

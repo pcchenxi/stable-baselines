@@ -48,15 +48,16 @@ class HindsightExperienceReplayWrapper(object):
 
     def __init__(self, replay_buffer, n_sampled_goal, goal_selection_strategy, wrapped_env):
         super(HindsightExperienceReplayWrapper, self).__init__()
-        self.n_sampled_goal = n_sampled_goal
 
         assert isinstance(goal_selection_strategy, GoalSelectionStrategy), "Invalid goal selection strategy," \
                                                                            "please use one of {}".format(
             list(GoalSelectionStrategy))
 
+        self.n_sampled_goal = n_sampled_goal
         self.goal_selection_strategy = goal_selection_strategy
         self.env = wrapped_env
-        self.current_episode = []
+        # Buffer for storing transitions of the current episode
+        self.episode_transitions = []
         self.replay_buffer = replay_buffer
 
     def append(self, obs_t, action, reward, obs_tp1, done):
@@ -74,11 +75,12 @@ class HindsightExperienceReplayWrapper(object):
         """
         assert self.replay_buffer is not None
         # Update current episode buffer
-        self.current_episode.append((obs_t, action, reward, obs_tp1, done))
+        self.episode_transitions.append((obs_t, action, reward, obs_tp1, done))
         if done:
             # Add transitions (and imagined ones) to buffer only when an episode is over
             self._store_episode()
-            self.current_episode = []
+            # Reset episode buffer
+            self.episode_transitions = []
 
     def sample(self, *args, **kwargs):
         return self.replay_buffer.sample(*args, **kwargs)
@@ -99,7 +101,7 @@ class HindsightExperienceReplayWrapper(object):
             selected_idx = np.random.choice(np.arange(transition_idx + 1, len(episode_transitions)))
             selected_transition = episode_transitions[selected_idx]
         elif self.goal_selection_strategy == GoalSelectionStrategy.FINAL:
-            # The achieved goal at the end of the episode
+            # Choose the goal achieved at the end of the episode
             selected_transition = episode_transitions[-1]
         elif self.goal_selection_strategy == GoalSelectionStrategy.EPISODE:
             # Random achieved goal during the episode
@@ -116,11 +118,11 @@ class HindsightExperienceReplayWrapper(object):
 
     def _sample_achieved_goals(self, episode_transitions, transition_idx):
         """
-        Sample a batch of achieved goal according to the sampling strategy.
+        Sample a batch of achieved goals according to the sampling strategy.
 
-        :param episode_transitions: ([tuple]) a list of all the transitions in the current episode
+        :param episode_transitions: ([tuple]) list of the transitions in the current episode
         :param transition_idx: (int) the transition to start sampling from
-        :return: (np.ndarray) a goal corresponding to the sampled obs
+        :return: (np.ndarray) an achieved goal
         """
         return [
             self._sample_achieved_goal(episode_transitions, transition_idx)
@@ -133,40 +135,44 @@ class HindsightExperienceReplayWrapper(object):
         episode in the replay buffer.
         This method is called only after each end of episode.
         """
-        last_episode_transitions = copy.deepcopy(self.current_episode)
+        # NOTE: is deepcopy really needed here?
+        # last_episode_transitions = copy.deepcopy(self.episode_transitions)
 
-        # For each transition in the last episode, create a set of hindsight transitions
-        for transition_idx, transition in enumerate(last_episode_transitions):
+        # For each transition in the last episode,
+        # create a set of artificial transitions
+        for transition_idx, transition in enumerate(self.episode_transitions):
 
             obs_t, action, reward, obs_tp1, done = transition
             # Add to the replay buffer
             self.replay_buffer.add(obs_t, action, reward, obs_tp1, done)
+
             # We cannot sample a goal from the future in the last step of an episode
-            if (transition_idx == len(last_episode_transitions) - 1 and
+            if (transition_idx == len(self.episode_transitions) - 1 and
                     self.goal_selection_strategy == GoalSelectionStrategy.FUTURE):
                 break
 
             # Sampled n goals per transition, where n is `n_sampled_goal`
             # this is called k in the paper
-            sampled_goals = self._sample_achieved_goals(last_episode_transitions, transition_idx)
+            sampled_goals = self._sample_achieved_goals(self.episode_transitions, transition_idx)
             # For each sampled goals, store a new transition
             for goal in sampled_goals:
+                # Copy transition to avoid modifying the original one
                 obs, action, reward, next_obs, done = copy.deepcopy(transition)
 
-                # Convert concatenated obs to dict
-                # so we can update the goals
+                # Convert concatenated obs to dict, so we can update the goals
                 obs_dict, next_obs_dict = map(self.env.convert_obs_to_dict, (obs, next_obs))
 
-                # update the desired goal in the transition
+                # Update the desired goal in the transition
                 obs_dict['desired_goal'] = goal
                 next_obs_dict['desired_goal'] = goal
 
-                # update the reward and terminal signal according to the goal
+                # Update the reward according to the new desired goal
                 reward = self.env.compute_reward(goal, next_obs_dict['achieved_goal'], None)
                 # Can we ensure that done = reward == 0
                 done = False
 
+                # Transform back to ndarrays
                 obs, next_obs = map(self.env.convert_dict_to_obs, (obs_dict, next_obs_dict))
 
-                # Add to the replay buffer
+                # Add artificial transition to the replay buffer
                 self.replay_buffer.add(obs, action, reward, next_obs, done)
