@@ -5,14 +5,26 @@ Changelog
 
 For download links, please look at `Github release page <https://github.com/hill-a/stable-baselines/releases>`_.
 
+Pre-Release 2.6.0a0 (WIP)
+-------------------------
+
+- **deprecated** ``memory_limit`` and ``memory_policy`` in DDPG, please use ``buffer_size`` instead. (will be removed in v3.x.x)
+- removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer``
+- add ``action_noise`` param for SAC, it helps exploration for problem with deceptive reward
+
 Pre-Release 2.5.1a0 (WIP)
 --------------------------
 
 - doc update (fix example of result plotter + improve doc)
 - fixed logger issues when stdout lacks ``read`` function
-- **deprecated** ``memory_limit`` and ``memory_policy`` in DDPG, please use ``buffer_size`` instead. (will be removed in v3.x.x)
-- removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer``
-- add ``action_noise`` param for SAC, it helps exploration for problem with deceptive reward
+- fixed a bug in ``common.dataset.Dataset`` where shuffling was not disabled properly (it affects only PPO1 with recurrent policies)
+- fixed output layer name for DDPG q function, used in pop-art normalization and l2 regularization of the critic
+- added support for multi env recording to ``generate_expert_traj`` (@XMaster96)
+- added support for LSTM model recording to ``generate_expert_traj`` (@XMaster96)
+- ``GAIL``: remove mandatory matplotlib dependency and refactor as subclass of ``TRPO`` (@kantneel and @AdamGleave)
+- added ``get_attr()``, ``env_method()`` and ``set_attr()`` methods for all VecEnv.
+  Those methods now all accept ``indices`` keyword to select a subset of envs.
+  ``set_attr`` now returns ``None`` rather than a list of ``None``. (@kantneel)
 
 
 Release 2.5.0 (2019-03-28)
@@ -275,3 +287,4 @@ In random order...
 
 Thanks to @bjmuld @iambenzo @iandanforth @r7vme @brendenpetersen @huvar @abhiskk @JohannesAck
 @EliasHasle @mrakgr @Bleyddyn @antoine-galataud @junhyeokahn @AdamGleave @keshaviyengar @tperol
+@XMaster96 @kantneel
