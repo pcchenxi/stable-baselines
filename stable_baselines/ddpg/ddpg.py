@@ -154,7 +154,7 @@ class DDPG(OffPolicyRLModel):
     :param tau: (float) the soft update coefficient (keep old values, between 0 and 1)
     :param normalize_returns: (bool) should the critic output be normalized
     :param enable_popart: (bool) enable pop-art normalization of the critic output
-        (https://arxiv.org/pdf/1602.07714.pdf)
+        (https://arxiv.org/pdf/1602.07714.pdf), normalize_returns must be set to True.
     :param normalize_observations: (bool) should the observation be normalized
     :param batch_size: (int) the size of the batch for learning the policy
     :param observation_range: (tuple) the bounding values for the observation
