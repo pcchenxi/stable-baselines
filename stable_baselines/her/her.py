@@ -3,6 +3,8 @@ import functools
 import gym
 
 from stable_baselines.common import BaseRLModel
+from stable_baselines.common import OffPolicyRLModel
+from stable_baselines.common.base_class import _UnvecWrapper
 from .replay_buffer import HindsightExperienceReplayWrapper, KEY_TO_GOAL_STRATEGY
 from .utils import HERGoalEnvWrapper
 
@@ -21,36 +23,64 @@ class HER(BaseRLModel):
 
     def __init__(self, policy, env, model_class, n_sampled_goal=4,
                  goal_selection_strategy='future', *args, **kwargs):
-        # super().__init__(policy=policy, env=env, verbose=verbose, policy_base=None, requires_vec_env=False)
+
+        super().__init__(policy=policy, env=env, verbose=kwargs.get('verbose', 0),
+                         policy_base=None, requires_vec_env=False)
+
+        self.model_class = model_class
+        self.replay_wrapper = None
+
+        # Convert string to GoalSelectionStrategy object
+        if isinstance(goal_selection_strategy, str):
+            assert goal_selection_strategy in KEY_TO_GOAL_STRATEGY.keys(), "Unknown goal selection strategy"
+            goal_selection_strategy = KEY_TO_GOAL_STRATEGY[goal_selection_strategy]
+
+        self.n_sampled_goal = n_sampled_goal
+        self.goal_selection_strategy = goal_selection_strategy
+
+        if self.env is not None:
+            self._create_replay_wrapper(self.env)
+
+        assert issubclass(model_class, OffPolicyRLModel),\
+            "Error: HER only works with Off policy model (such as DDPG, SAC and DQN)."
+
+        self.model = self.model_class(policy, self.env, *args, **kwargs)
+        self.model._save_to_file = self._save_to_file
+
+
+    def _create_replay_wrapper(self, env):
+        # if isinstance(env, VecEnv):
+        #     assert isinstance(env, _UnvecWrapper)
 
         # TODO: check if the env is not already wrapped
-        self.model_class = model_class
+        if not isinstance(env, HERGoalEnvWrapper):
+            env = HERGoalEnvWrapper(env)
+
         self.env = env
         # TODO: check for TimeLimit wrapper too
         # TODO: support VecEnv
         # assert isinstance(self.env, gym.GoalEnv), "HER only supports gym.GoalEnv"
-        self.wrapped_env = HERGoalEnvWrapper(env)
 
-        if isinstance(goal_selection_strategy, str):
-            assert goal_selection_strategy in KEY_TO_GOAL_STRATEGY.keys()
-            goal_selection_strategy = KEY_TO_GOAL_STRATEGY[goal_selection_strategy]
-
-        self.replay_wrapper = functools.partial(HindsightExperienceReplayWrapper, n_sampled_goal=n_sampled_goal,
-                                                goal_selection_strategy=goal_selection_strategy,
-                                                wrapped_env=self.wrapped_env)
-        self.model = self.model_class(policy, self.wrapped_env, *args, **kwargs)
+        self.replay_wrapper = functools.partial(HindsightExperienceReplayWrapper,
+                                                n_sampled_goal=self.n_sampled_goal,
+                                                goal_selection_strategy=self.goal_selection_strategy,
+                                                wrapped_env=self.env)
 
     def set_env(self, env):
-        self.env = env
-        self.wrapped_env = HERGoalEnvWrapper(env)
-        self.model.set_env(self.wrapped_env)
+        # Unwrap VecEnv if needed
+        # TODO: save/load correct observation_space
+        # which is different between HER and the wrapped env
+        # super().set_env(env)
+        self._create_replay_wrapper(env)
+        self.model.set_env(self.env)
 
     def get_env(self):
-        return self.wrapped_env
+        return self.env
 
     def __getattr__(self, attr):
         """
         Wrap the RL model.
+
         :param attr: (str)
         :return: (Any)
         """
@@ -75,20 +105,31 @@ class HER(BaseRLModel):
         return self.model.learn(total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="HER",
                                 reset_num_timesteps=True, replay_wrapper=self.replay_wrapper)
 
+    def _check_obs(self, observation):
+        if isinstance(observation, dict):
+            if self.env is not None:
+                if len(observation['observation'].shape) > 1:
+                    observation = _UnvecWrapper.unvec_obs(observation)
+                    return [self.env.convert_dict_to_obs(observation)]
+                return self.env.convert_dict_to_obs(observation)
+            else:
+                raise ValueError("You must either pass an env to HER or wrap your env using HERGoalEnvWrapper")
+        return observation
+
     def predict(self, observation, state=None, mask=None, deterministic=True):
-        # TODO: assert the type of observation
-        return self.model.predict(observation, state, mask, deterministic)
+        return self.model.predict(self._check_obs(observation), state, mask, deterministic)
 
     def action_probability(self, observation, state=None, mask=None, actions=None):
-        return self.model.action_probability(observation, state, mask, actions)
+        return self.model.action_probability(self._check_obs(observation), state, mask, actions)
 
-    # def _save_to_file(self, save_path, data=None, params=None):
-    #     # HACK to save the replay wrapper
-    #     # or better to save only the replay strategy and its params?
-    #     # it will not work with VecEnv
-    #     data['replay_wrapper'] = self.replay_wrapper
-    #     data['model_class'] = self.model_class
-    #     super()._save_to_file(save_path, data, params)
+    def _save_to_file(self, save_path, data=None, params=None):
+        # HACK to save the replay wrapper
+        # or better to save only the replay strategy and its params?
+        # it will not work with VecEnv
+        data['n_sampled_goal'] = self.n_sampled_goal
+        data['goal_selection_strategy'] = self.goal_selection_strategy
+        data['model_class'] = self.model_class
+        super()._save_to_file(save_path, data, params)
 
     def save(self, save_path):
         # Is there something more to save? (the replay wrapper?)
@@ -96,16 +137,19 @@ class HER(BaseRLModel):
 
     @classmethod
     def load(cls, load_path, env=None, **kwargs):
-        pass
-        # data, params = cls._load_from_file(load_path)
-        #
-        # if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
-        #     raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
-        #                      "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
-        #                                                                       kwargs['policy_kwargs']))
-        #
-        # model = cls(policy=data["policy"], env=env, model_class=data['model_class'], _init_setup_model=False)
+        data, _ = cls._load_from_file(load_path)
+
+        if 'policy_kwargs' in kwargs and kwargs['policy_kwargs'] != data['policy_kwargs']:
+            raise ValueError("The specified policy kwargs do not equal the stored policy kwargs. "
+                             "Stored kwargs: {}, specified kwargs: {}".format(data['policy_kwargs'],
+                                                                              kwargs['policy_kwargs']))
+
+        model = cls(policy=data["policy"], env=env, model_class=data['model_class'],
+                    n_sampled_goal=data['n_sampled_goal'],
+                    goal_selection_strategy=data['goal_selection_strategy'],
+                    _init_setup_model=False)
         # model.__dict__.update(data)
         # model.__dict__.update(kwargs)
-        # model.model = data['model_class'].load(load_path, model.get_env())
-        # return model
+        model.model = data['model_class'].load(load_path, model.get_env(), **kwargs)
+        model.model._save_to_file = model._save_to_file
+        return model
