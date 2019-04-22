@@ -58,8 +58,9 @@ class BitFlippingEnv(GoalEnv):
         done = (obs['achieved_goal'] == obs['desired_goal']).all()
         self.current_step += 1
         # Episode terminate when we reached the goal or the max number of steps
+        info = {'is_success': done}
         done = done or self.current_step >= self.max_steps
-        return obs, reward, done, {}
+        return obs, reward, done, info
 
     def compute_reward(self, achieved_goal, desired_goal, _info):
         # Deceptive reward: it is positive only when the goal is achieved

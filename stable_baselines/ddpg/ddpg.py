@@ -808,6 +808,7 @@ class DDPG(OffPolicyRLModel):
             eval_episode_rewards_history = deque(maxlen=100)
             episode_rewards_history = deque(maxlen=100)
             self.episode_reward = np.zeros((1,))
+            episode_successes = []
             with self.sess.as_default(), self.graph.as_default():
                 # Prepare everything.
                 self._reset()
@@ -848,7 +849,7 @@ class DDPG(OffPolicyRLModel):
                             # Execute next action.
                             if rank == 0 and self.render:
                                 self.env.render()
-                            new_obs, reward, done, _ = self.env.step(action * np.abs(self.action_space.low))
+                            new_obs, reward, done, info = self.env.step(action * np.abs(self.action_space.low))
 
                             if writer is not None:
                                 ep_rew = np.array([reward]).reshape((1, -1))
@@ -883,6 +884,10 @@ class DDPG(OffPolicyRLModel):
                                 episode_step = 0
                                 epoch_episodes += 1
                                 episodes += 1
+
+                                maybe_is_success = info.get('is_success')
+                                if maybe_is_success is not None:
+                                    episode_successes.append(float(maybe_is_success))
 
                                 self._reset()
                                 if not isinstance(self.env, VecEnv):
@@ -985,6 +990,8 @@ class DDPG(OffPolicyRLModel):
 
                     for key in sorted(combined_stats.keys()):
                         logger.record_tabular(key, combined_stats[key])
+                    if len(episode_successes) > 0:
+                        logger.logkv("success rate", np.mean(episode_successes[-100:]))
                     logger.dump_tabular()
                     logger.info('')
                     logdir = logger.get_dir()

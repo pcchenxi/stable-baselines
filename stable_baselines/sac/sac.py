@@ -375,6 +375,7 @@ class SAC(OffPolicyRLModel):
 
             start_time = time.time()
             episode_rewards = [0.0]
+            episode_successes = []
             if self.action_noise is not None:
                 self.action_noise.reset()
             obs = self.env.reset()
@@ -454,6 +455,10 @@ class SAC(OffPolicyRLModel):
                         obs = self.env.reset()
                     episode_rewards.append(0.0)
 
+                    maybe_is_success = info.get('is_success')
+                    if maybe_is_success is not None:
+                        episode_successes.append(float(maybe_is_success))
+
                 if len(episode_rewards[-101:-1]) == 0:
                     mean_reward = -np.inf
                 else:
@@ -473,6 +478,8 @@ class SAC(OffPolicyRLModel):
                     logger.logkv("current_lr", current_lr)
                     logger.logkv("fps", fps)
                     logger.logkv('time_elapsed', int(time.time() - start_time))
+                    if len(episode_successes) > 0:
+                        logger.logkv("success rate", np.mean(episode_successes[-100:]))
                     if len(infos_values) > 0:
                         for (name, val) in zip(self.infos_names, infos_values):
                             logger.logkv(name, val)
