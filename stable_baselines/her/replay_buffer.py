@@ -60,9 +60,6 @@ class HindsightExperienceReplayWrapper(object):
         self.episode_transitions = []
         self.replay_buffer = replay_buffer
 
-    def append(self, obs_t, action, reward, obs_tp1, done):
-        return self.add(obs_t, action, reward, obs_tp1, done)
-
     def add(self, obs_t, action, reward, obs_tp1, done):
         """
         add a new transition to the buffer
@@ -104,13 +101,13 @@ class HindsightExperienceReplayWrapper(object):
             # Choose the goal achieved at the end of the episode
             selected_transition = episode_transitions[-1]
         elif self.goal_selection_strategy == GoalSelectionStrategy.EPISODE:
-            # Random achieved goal during the episode
+            # Random goal achieved during the episode
             selected_idx = np.random.choice(np.arange(len(episode_transitions)))
             selected_transition = episode_transitions[selected_idx]
         elif self.goal_selection_strategy == GoalSelectionStrategy.RANDOM:
-            # Random achieved goal from the entire replay buffer
+            # Random goal achieved, from the entire replay buffer
             selected_idx = np.random.choice(np.arange(len(self.replay_buffer)))
-            selected_transition = self.replay_buffer._storage[selected_idx]
+            selected_transition = self.replay_buffer.storage[selected_idx]
         else:
             raise ValueError("Invalid goal selection strategy,"
                              "please use one of {}".format(list(GoalSelectionStrategy)))
@@ -135,9 +132,6 @@ class HindsightExperienceReplayWrapper(object):
         episode in the replay buffer.
         This method is called only after each end of episode.
         """
-        # NOTE: is deepcopy really needed here?
-        # last_episode_transitions = copy.deepcopy(self.episode_transitions)
-
         # For each transition in the last episode,
         # create a set of artificial transitions
         for transition_idx, transition in enumerate(self.episode_transitions):
@@ -168,7 +162,7 @@ class HindsightExperienceReplayWrapper(object):
 
                 # Update the reward according to the new desired goal
                 reward = self.env.compute_reward(goal, next_obs_dict['achieved_goal'], None)
-                # Can we ensure that done = reward == 0
+                # Can we ensure that done = reward == 0?
                 done = False
 
                 # Transform back to ndarrays

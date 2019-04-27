@@ -4,8 +4,9 @@ from gym import spaces
 
 class HERGoalEnvWrapper(object):
     """
-    A wrapper that allow to use dict env (coming from GoalEnv) with
+    A wrapper that allow to use dict observation space (coming from GoalEnv) with
     the RL algorithms.
+    It assumes that all the spaces of the dict space are of the same type.
 
     :param env: (gym.GoalEnv)
     """
@@ -17,7 +18,7 @@ class HERGoalEnvWrapper(object):
         self.action_space = env.action_space
         self.spaces = list(env.observation_space.spaces.values())
         # TODO: check that all spaces are of the same type
-        # (current limiation of the wrapper)
+        # (current limitation of the wrapper)
         # TODO: check when dim > 1
 
         goal_space_shape = env.observation_space.spaces['achieved_goal'].shape
@@ -26,18 +27,21 @@ class HERGoalEnvWrapper(object):
         total_dim = self.obs_dim + 2 * self.goal_dim
 
         if len(goal_space_shape) == 2:
-            assert  goal_space_shape[1] == 1
+            assert goal_space_shape[1] == 1, "Only 1D observation spaces are supported yet"
         else:
-            assert len(goal_space_shape) == 1
+            assert len(goal_space_shape) == 1, "Only 1D observation spaces are supported yet"
 
         if isinstance(self.spaces[0], spaces.MultiBinary):
             self.observation_space = spaces.MultiBinary(total_dim)
+
         elif isinstance(self.spaces[0], spaces.Box):
             lows = np.concatenate([space.low for space in self.spaces])
             highs = np.concatenate([space.high for space in self.spaces])
             self.observation_space = spaces.Box(lows, highs, dtype=np.float32)
+
         elif isinstance(self.spaces[0], spaces.Discrete):
             pass
+
         else:
             raise NotImplementedError()
 
@@ -47,11 +51,14 @@ class HERGoalEnvWrapper(object):
         :param obs_dict: (dict<np.ndarray>)
         :return: (np.ndarray)
         """
-        # Note: we should remove achieved goal from the observation ?
+        # Note: achieved goal is not removed from the observation
+        # this is helpful to have a revertible transformation
         return np.concatenate([obs for obs in obs_dict.values()])
 
     def convert_obs_to_dict(self, observations):
         """
+        Inverse operation of convert_dict_to_obs
+
         :param observations: (np.ndarray)
         :return: (dict<np.ndarray>)
         """

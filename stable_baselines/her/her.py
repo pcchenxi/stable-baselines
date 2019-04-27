@@ -29,6 +29,10 @@ class HER(BaseRLModel):
 
         self.model_class = model_class
         self.replay_wrapper = None
+        # Save dict observation space (used for checks at loading time)
+        if env is not None:
+            self.observation_space = env.observation_space
+            self.action_space = env.action_space
 
         # Convert string to GoalSelectionStrategy object
         if isinstance(goal_selection_strategy, str):
@@ -49,16 +53,12 @@ class HER(BaseRLModel):
 
 
     def _create_replay_wrapper(self, env):
-        # if isinstance(env, VecEnv):
-        #     assert isinstance(env, _UnvecWrapper)
-
-        # TODO: check if the env is not already wrapped
         if not isinstance(env, HERGoalEnvWrapper):
             env = HERGoalEnvWrapper(env)
 
         self.env = env
-        # TODO: check for TimeLimit wrapper too
-        # TODO: support VecEnv
+        # NOTE: we cannot do that check directly with VecEnv
+        # maybe we can try calling `compute_reward()` ?
         # assert isinstance(self.env, gym.GoalEnv), "HER only supports gym.GoalEnv"
 
         self.replay_wrapper = functools.partial(HindsightExperienceReplayWrapper,
@@ -67,11 +67,8 @@ class HER(BaseRLModel):
                                                 wrapped_env=self.env)
 
     def set_env(self, env):
-        # Unwrap VecEnv if needed
-        # TODO: save/load correct observation_space
-        # which is different between HER and the wrapped env
-        # super().set_env(env)
-        self._create_replay_wrapper(env)
+        super().set_env(env)
+        self._create_replay_wrapper(self.env)
         self.model.set_env(self.env)
 
     def get_env(self):
@@ -130,6 +127,8 @@ class HER(BaseRLModel):
         data['n_sampled_goal'] = self.n_sampled_goal
         data['goal_selection_strategy'] = self.goal_selection_strategy
         data['model_class'] = self.model_class
+        data['her_obs_space'] = self.observation_space
+        data['her_action_space'] = self.action_space
         super()._save_to_file(save_path, data, params)
 
     def save(self, save_path):
@@ -149,6 +148,8 @@ class HER(BaseRLModel):
                     n_sampled_goal=data['n_sampled_goal'],
                     goal_selection_strategy=data['goal_selection_strategy'],
                     _init_setup_model=False)
+        model.__dict__['observation_space'] = data['her_obs_space']
+        model.__dict__['action_space'] = data['her_action_space']
         # model.__dict__.update(data)
         # model.__dict__.update(kwargs)
         model.model = data['model_class'].load(load_path, model.get_env(), **kwargs)
