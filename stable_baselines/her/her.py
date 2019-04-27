@@ -1,7 +1,5 @@
 import functools
 
-import gym
-
 from stable_baselines.common import BaseRLModel
 from stable_baselines.common import OffPolicyRLModel
 from stable_baselines.common.base_class import _UnvecWrapper
@@ -45,12 +43,12 @@ class HER(BaseRLModel):
         if self.env is not None:
             self._create_replay_wrapper(self.env)
 
-        assert issubclass(model_class, OffPolicyRLModel),\
+        assert issubclass(model_class, OffPolicyRLModel), \
             "Error: HER only works with Off policy model (such as DDPG, SAC and DQN)."
 
         self.model = self.model_class(policy, self.env, *args, **kwargs)
+        # Patch to support saving/loading
         self.model._save_to_file = self._save_to_file
-
 
     def _create_replay_wrapper(self, env):
         if not isinstance(env, HERGoalEnvWrapper):
@@ -89,7 +87,7 @@ class HER(BaseRLModel):
         if attr in self.__dict__:
             setattr(self, attr, value)
         else:
-            set_attr(self.model, attr, value)
+            setattr(self.model, attr, value)
 
     def _get_pretrain_placeholders(self):
         return self.model._get_pretrain_placeholders()
@@ -132,7 +130,6 @@ class HER(BaseRLModel):
         super()._save_to_file(save_path, data, params)
 
     def save(self, save_path):
-        # Is there something more to save? (the replay wrapper?)
         self.model.save(save_path)
 
     @classmethod
@@ -150,8 +147,6 @@ class HER(BaseRLModel):
                     _init_setup_model=False)
         model.__dict__['observation_space'] = data['her_obs_space']
         model.__dict__['action_space'] = data['her_action_space']
-        # model.__dict__.update(data)
-        # model.__dict__.update(kwargs)
         model.model = data['model_class'].load(load_path, model.get_env(), **kwargs)
         model.model._save_to_file = model._save_to_file
         return model

@@ -349,6 +349,11 @@ This example demonstrate how to train a recurrent policy and how to test it prop
       env.render()
 
 
+Hindsight Experience Replay (HER)
+---------------------------------
+
+TODO: highway env
+
 
 Continual Learning
 ------------------

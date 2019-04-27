@@ -6,7 +6,7 @@ from stable_baselines import HER, DQN, SAC, DDPG
 from stable_baselines.her import GoalSelectionStrategy, HERGoalEnvWrapper
 from stable_baselines.her.replay_buffer import KEY_TO_GOAL_STRATEGY
 from stable_baselines.common.bit_flipping_env import BitFlippingEnv
-from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
+from stable_baselines.common.vec_env import DummyVecEnv  # , VecNormalize
 
 N_BITS = 10
 

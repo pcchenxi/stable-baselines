@@ -142,8 +142,10 @@ class DDPG(OffPolicyRLModel):
     :param gamma: (float) the discount factor
     :param memory_policy: (ReplayBuffer) the replay buffer
         (if None, default to baselines.deepq.replay_buffer.ReplayBuffer)
+
         .. deprecated:: 2.6.0
             This parameter will be removed in a future version
+
     :param eval_env: (Gym Environment) the evaluation environment (can be None)
     :param nb_train_steps: (int) the number of training steps
     :param nb_rollout_steps: (int) the number of rollout steps
@@ -167,8 +169,10 @@ class DDPG(OffPolicyRLModel):
     :param render: (bool) enable rendering of the environment
     :param render_eval: (bool) enable rendering of the evalution environment
     :param memory_limit: (int) the max number of transitions to store, size of the replay buffer
+
         .. deprecated:: 2.6.0
             Use `buffer_size` instead.
+
     :param buffer_size: (int) the max number of transitions to store, size of the replay buffer
     :param verbose: (int) the verbosity level: 0 none, 1 training information, 2 tensorflow debug
     :param tensorboard_log: (str) the log location for tensorboard (if None, no logging)
