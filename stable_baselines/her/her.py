@@ -51,6 +51,10 @@ class HER(BaseRLModel):
         self.model._save_to_file = self._save_to_file
 
     def _create_replay_wrapper(self, env):
+        """
+        Wrap the environment in a HERGoalEnvWrapper
+        if needed and create the replay buffer wrapper.
+        """
         if not isinstance(env, HERGoalEnvWrapper):
             env = HERGoalEnvWrapper(env)
 

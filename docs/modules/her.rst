@@ -18,6 +18,12 @@ HER is a method wrapper that works with Off policy methods (DQN, SAC and DDPG fo
 
 	HER requires the environment to inherits from `gym.GoalEnv <https://github.com/openai/gym/blob/3394e245727c1ae6851b504a50ba77c73cd4c65b/gym/core.py#L160>`_
 
+
+.. warning::
+
+	you must pass an environment or wrap it with ``HERGoalEnvWrapper`` in order to use the predict method
+
+
 Notes
 -----
 

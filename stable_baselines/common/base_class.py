@@ -634,13 +634,17 @@ class _UnvecWrapper(VecEnvWrapper):
         if attr in self.__dict__:
             setattr(self, attr, value)
         else:
-            set_attr(self.venv, attr, value)
+            setattr(self.venv, attr, value)
 
     def compute_reward(self, achieved_goal, desired_goal, _info):
         return float(self.venv.env_method('compute_reward', achieved_goal, desired_goal, _info)[0])
 
     @staticmethod
     def unvec_obs(obs):
+        """
+        :param obs: (Union[np.ndarray, dict])
+        :return: (Union[np.ndarray, dict])
+        """
         if not isinstance(obs, dict):
             return obs[0]
         obs_ = OrderedDict()
