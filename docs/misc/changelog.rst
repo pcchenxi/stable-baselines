@@ -5,15 +5,24 @@ Changelog
 
 For download links, please look at `Github release page <https://github.com/hill-a/stable-baselines/releases>`_.
 
+
 Pre-Release 2.6.0a0 (WIP)
 -------------------------
 
+** Hindsight Experience Replay (HER) - Reloaded **
+
+- revamped HER implementation: clean re-implementation from scratch, now supports DQN, SAC and DDPG
 - **deprecated** ``memory_limit`` and ``memory_policy`` in DDPG, please use ``buffer_size`` instead. (will be removed in v3.x.x)
 - removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer``
 - add ``action_noise`` param for SAC, it helps exploration for problem with deceptive reward
 
-Pre-Release 2.5.1a0 (WIP)
+
+Release 2.5.1 (2019-05-04)
 --------------------------
+
+**Bug fixes + improvements in the VecEnv**
+
+**Warning: breaking change when using custom recurrent policies**
 
 - doc update (fix example of result plotter + improve doc)
 - fixed logger issues when stdout lacks ``read`` function
@@ -27,10 +36,14 @@ Pre-Release 2.5.1a0 (WIP)
   ``set_attr`` now returns ``None`` rather than a list of ``None``. (@kantneel)
 - ``GAIL``: ``gail.dataset.ExpertDataset` supports loading from memory rather than file, and
   ``gail.dataset.record_expert`` supports returning in-memory rather than saving to file.
+- added support in ``VecEnvWrapper`` for accessing attributes of arbitrarily deeply nested
+  instances of ``VecEnvWrapper`` and ``VecEnv``. This is allowed as long as the attribute belongs
+  to exactly one of the nested instances i.e. it must be unambiguous. (@kantneel)
 - fixed bug where result plotter would crash on very short runs (@Pastafarianist)
 - added option to not trim output of result plotter by number of timesteps (@Pastafarianist)
 - clarified the public interface of ``BasePolicy`` and ``ActorCriticPolicy``. **Breaking change** when using custom policies: ``masks_ph`` is now called ``dones_ph``.
 - support for custom stateful policies.
+- fixed episode length recording in ``trpo_mpi.utils.traj_segment_generator`` (@GerardMaggiolino)
 
 
 Release 2.5.0 (2019-03-28)
@@ -293,4 +306,4 @@ In random order...
 
 Thanks to @bjmuld @iambenzo @iandanforth @r7vme @brendenpetersen @huvar @abhiskk @JohannesAck
 @EliasHasle @mrakgr @Bleyddyn @antoine-galataud @junhyeokahn @AdamGleave @keshaviyengar @tperol
-@XMaster96 @kantneel @Pastafarianist
+@XMaster96 @kantneel @Pastafarianist @GerardMaggiolino
