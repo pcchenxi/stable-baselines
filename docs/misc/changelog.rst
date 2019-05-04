@@ -15,6 +15,7 @@ Pre-Release 2.6.0a0 (WIP)
 - **deprecated** ``memory_limit`` and ``memory_policy`` in DDPG, please use ``buffer_size`` instead. (will be removed in v3.x.x)
 - removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer``
 - add ``action_noise`` param for SAC, it helps exploration for problem with deceptive reward
+- removed unused dependencies (tdqm, dill, progressbar2, seaborn, glob2, click)
 
 
 Release 2.5.1 (2019-05-04)
