@@ -13,27 +13,29 @@ notebooks:
 -  `Monitor Training and Plotting`_
 -  `Atari Games`_
 -  `Breakout`_ (trained agent included)
+-  `Hindsight Experience Replay`_
 
 .. _Getting Started: https://colab.research.google.com/drive/1_1H5bjWKYBVKbbs-Kj83dsfuZieDNcFU
-.. _Training, Saving, Loading: https://colab.research.google.com/drive/1KoAQ1C_BNtGV3sVvZCnNZaER9rstmy0s
+.. _Training, Saving, Loading: https://colab.research.google.com/drive/16QritJF5kgT3mtnODepld1fo5tFnFCoc
 .. _Multiprocessing: https://colab.research.google.com/drive/1ZzNFMUUi923foaVsYb4YjPy4mjKtnOxb
 .. _Monitor Training and Plotting: https://colab.research.google.com/drive/1L_IMo6v0a0ALK8nefZm6PqPSy0vZIWBT
 .. _Atari Games: https://colab.research.google.com/drive/1iYK11yDzOOqnrXi1Sfjm1iekZr4cxLaN
 .. _Breakout: https://colab.research.google.com/drive/14NwwEHwN4hdNgGzzySjxQhEVDff-zr7O
+.. _Hindsight Experience Replay: https://colab.research.google.com/drive/1VDD0uLi8wjUXIqAdLKiK15XaEe0z2FOc
 
 .. |colab| image:: ../_static/img/colab.svg
 
 Basic Usage: Training, Saving, Loading
 --------------------------------------
 
-In the following example, we will train, save and load an A2C model on the Lunar Lander environment.
+In the following example, we will train, save and load a DQN model on the Lunar Lander environment.
 
 .. image:: ../_static/img/try_it.png
    :scale: 30 %
-   :target: https://colab.research.google.com/drive/1KoAQ1C_BNtGV3sVvZCnNZaER9rstmy0s
+   :target: https://colab.research.google.com/drive/16QritJF5kgT3mtnODepld1fo5tFnFCoc
 
 
-.. figure:: https://cdn-images-1.medium.com/max/960/1*W7X69nxINgZEcJEAyoHCVw.gif
+.. figure:: https://cdn-images-1.medium.com/max/960/1*f4VZPKOI0PYNWiwt0la0Rg.gif
 
   Lunar Lander Environment
 
@@ -46,25 +48,21 @@ In the following example, we will train, save and load an A2C model on the Lunar
 
   import gym
 
-  from stable_baselines.common.policies import MlpPolicy
-  from stable_baselines.common.vec_env import DummyVecEnv
-  from stable_baselines import A2C
+  from stable_baselines import DQN
 
-  # Create and wrap the environment
+  # Create environment
   env = gym.make('LunarLander-v2')
-  env = DummyVecEnv([lambda: env])
 
-  # Alternatively, you can directly use:
-  # model = A2C('MlpPolicy', 'LunarLander-v2', ent_coef=0.1, verbose=1)
-  model = A2C(MlpPolicy, env, ent_coef=0.1, verbose=1)
+  # Instantiate the agent
+  model = DQN('MlpPolicy', env, learning_rate=1e-3, prioritized_replay=True, verbose=1)
   # Train the agent
-  model.learn(total_timesteps=100000)
+  model.learn(total_timesteps=int(2e5))
   # Save the agent
-  model.save("a2c_lunar")
+  model.save("dqn_lunar")
   del model  # delete trained model to demonstrate loading
 
   # Load the trained agent
-  model = A2C.load("a2c_lunar")
+  model = DQN.load("dqn_lunar")
 
   # Enjoy trained agent
   obs = env.reset()
@@ -152,12 +150,11 @@ If your callback returns False, training is aborted early.
   import numpy as np
   import matplotlib.pyplot as plt
 
-  from stable_baselines.ddpg.policies import MlpPolicy
-  from stable_baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+  from stable_baselines.ddpg.policies import LnMlpPolicy
   from stable_baselines.bench import Monitor
   from stable_baselines.results_plotter import load_results, ts2xy
   from stable_baselines import DDPG
-  from stable_baselines.ddpg.noise import AdaptiveParamNoiseSpec
+  from stable_baselines.ddpg import AdaptiveParamNoiseSpec
 
 
   best_mean_reward, n_steps = -np.inf, 0
@@ -171,7 +168,7 @@ If your callback returns False, training is aborted early.
     global n_steps, best_mean_reward
     # Print stats every 1000 calls
     if (n_steps + 1) % 1000 == 0:
-        # Evaluate policy performance
+        # Evaluate policy training performance
         x, y = ts2xy(load_results(log_dir), 'timesteps')
         if len(x) > 0:
             mean_reward = np.mean(y[-100:])
@@ -195,13 +192,14 @@ If your callback returns False, training is aborted early.
   # Create and wrap the environment
   env = gym.make('LunarLanderContinuous-v2')
   env = Monitor(env, log_dir, allow_early_resets=True)
-  env = DummyVecEnv([lambda: env])
 
   # Add some param noise for exploration
-  param_noise = AdaptiveParamNoiseSpec(initial_stddev=0.2, desired_action_stddev=0.2)
-  model = DDPG(MlpPolicy, env, param_noise=param_noise, memory_limit=int(1e6), verbose=0)
+  param_noise = AdaptiveParamNoiseSpec(initial_stddev=0.1, desired_action_stddev=0.1)
+  # Because we use parameter noise, we should use a MlpPolicy with layer normalization
+  model = DDPG(LnMlpPolicy, env, param_noise=param_noise, verbose=0)
   # Train the agent
-  model.learn(total_timesteps=200000, callback=callback)
+  model.learn(total_timesteps=int(1e5), callback=callback)
+
 
 Atari Games
 -----------
@@ -353,6 +351,12 @@ Hindsight Experience Replay (HER)
 ---------------------------------
 
 For this example, we are using `Highway-Env <https://github.com/eleurent/highway-env>`_ by `@eleurent <https://github.com/eleurent>`_.
+
+
+.. image:: ../_static/img/try_it.png
+   :scale: 30 %
+   :target: https://colab.research.google.com/drive/1VDD0uLi8wjUXIqAdLKiK15XaEe0z2FOc
+
 
 .. figure:: https://raw.githubusercontent.com/eleurent/highway-env/gh-media/docs/media/parking-env.gif
 
