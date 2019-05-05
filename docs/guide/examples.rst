@@ -374,9 +374,9 @@ The parking env is a goal-conditioned continuous control task, in which the vehi
   from stable_baselines import HER, SAC, DDPG
   from stable_baselines.ddpg import NormalActionNoise
 
-  env = gym.make("highway-parking-v0")
+  env = gym.make("parking-v0")
 
-  # Create 4 artificial transition per real transition
+  # Create 4 artificial transitions per real transition
   n_sampled_goal = 4
 
   # SAC hyperparams:

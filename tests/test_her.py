@@ -6,7 +6,7 @@ from stable_baselines import HER, DQN, SAC, DDPG
 from stable_baselines.her import GoalSelectionStrategy, HERGoalEnvWrapper
 from stable_baselines.her.replay_buffer import KEY_TO_GOAL_STRATEGY
 from stable_baselines.common.bit_flipping_env import BitFlippingEnv
-from stable_baselines.common.vec_env import DummyVecEnv  # , VecNormalize
+from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
 
 N_BITS = 10
 
@@ -46,8 +46,6 @@ def test_her(model_class, goal_selection_strategy):
 def test_model_manipulation(model_class, goal_selection_strategy):
     env = BitFlippingEnv(N_BITS, continuous=model_class in [DDPG, SAC], max_steps=N_BITS)
     env = DummyVecEnv([lambda: env])
-    # NOTE: HER does not support VecEnvWrapper yet
-    # env = VecNormalize(env)
 
     model = HER('MlpPolicy', env, model_class, n_sampled_goal=3, goal_selection_strategy=goal_selection_strategy,
                 verbose=0)
@@ -57,6 +55,10 @@ def test_model_manipulation(model_class, goal_selection_strategy):
 
     model.save('./test_her')
     del model
+
+    # NOTE: HER does not support VecEnvWrapper yet
+    with pytest.raises(AssertionError):
+        model = HER.load('./test_her', env=VecNormalize(env))
 
     model = HER.load('./test_her')
 

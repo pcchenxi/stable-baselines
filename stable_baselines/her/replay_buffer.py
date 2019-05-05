@@ -36,7 +36,7 @@ KEY_TO_GOAL_STRATEGY = {
 class HindsightExperienceReplayWrapper(object):
     """
     Wrapper around a replay buffer in order to use HER.
-    This implementation is close to the one found in https://github.com/NervanaSystems/coach/.
+    This implementation is inspired by to the one found in https://github.com/NervanaSystems/coach/.
 
     :param replay_buffer: (ReplayBuffer)
     :param n_sampled_goal: (int) The number of artificial transitions to generate for each actual transition
@@ -162,7 +162,7 @@ class HindsightExperienceReplayWrapper(object):
 
                 # Update the reward according to the new desired goal
                 reward = self.env.compute_reward(goal, next_obs_dict['achieved_goal'], None)
-                # Can we ensure that done = reward == 0?
+                # Can we use achieved_goal == desired_goal?
                 done = False
 
                 # Transform back to ndarrays
