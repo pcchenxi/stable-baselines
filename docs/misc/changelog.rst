@@ -16,6 +16,8 @@ Pre-Release 2.6.0a0 (WIP)
 - removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer``
 - add ``action_noise`` param for SAC, it helps exploration for problem with deceptive reward
 - removed unused dependencies (tdqm, dill, progressbar2, seaborn, glob2, click)
+- Bugfix for ``VecEnvWrapper.__getattr__`` which enables access to class attributes inherited from parent classes.
+- Removed ``get_available_gpus`` function which hadn't been used anywhere (@Pastafarianist)
 
 
 Release 2.5.1 (2019-05-04)
