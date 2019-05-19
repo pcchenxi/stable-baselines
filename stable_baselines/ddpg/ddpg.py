@@ -174,7 +174,7 @@ class DDPG(OffPolicyRLModel):
             Use `buffer_size` instead.
 
     :param buffer_size: (int) the max number of transitions to store, size of the replay buffer
-    :param random_exploration: (float) Probability of taken a random action (as in an epsilon-greedy strategy)
+    :param random_exploration: (float) Probability of taking a random action (as in an epsilon-greedy strategy)
         This is not needed for DDPG normally but can help exploring when using HER + DDPG.
         This hack was present in the original OpenAI Baselines repo (DDPG + HER)
     :param verbose: (int) the verbosity level: 0 none, 1 training information, 2 tensorflow debug

@@ -55,7 +55,7 @@ class SAC(OffPolicyRLModel):
     :param target_entropy: (str or float) target entropy when learning ent_coef (ent_coef = 'auto')
     :param action_noise: (ActionNoise) the action noise type (None by default), this can help
         for hard exploration problem. Cf DDPG for the different action noise type.
-    :param random_exploration: (float) Probability of taken a random action (as in an epsilon-greedy strategy)
+    :param random_exploration: (float) Probability of taking a random action (as in an epsilon-greedy strategy)
         This is not needed for SAC normally but can help exploring when using HER + SAC.
         This hack was present in the original OpenAI Baselines repo (DDPG + HER)
     :param verbose: (int) the verbosity level: 0 none, 1 training information, 2 tensorflow debug
@@ -401,9 +401,8 @@ class SAC(OffPolicyRLModel):
                 # if random_exploration is set to 0 (normal setting)
                 if (self.num_timesteps < self.learning_starts
                     or np.random.rand() < self.random_exploration):
-                    action = self.env.action_space.sample()
                     # No need to rescale when sampling random action
-                    rescaled_action = action
+                    rescaled_action = action = self.env.action_space.sample()
                 else:
                     action = self.policy_tf.step(obs[None], deterministic=False).flatten()
                     # Add noise to the action (improve exploration,
