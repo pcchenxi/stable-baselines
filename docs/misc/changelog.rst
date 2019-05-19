@@ -9,11 +9,11 @@ For download links, please look at `Github release page <https://github.com/hill
 Pre-Release 2.6.0a0 (WIP)
 -------------------------
 
-** Hindsight Experience Replay (HER) - Reloaded **
+**Hindsight Experience Replay (HER) - Reloaded**
 
 - revamped HER implementation: clean re-implementation from scratch, now supports DQN, SAC and DDPG
 - **deprecated** ``memory_limit`` and ``memory_policy`` in DDPG, please use ``buffer_size`` instead. (will be removed in v3.x.x)
-- removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer``
+- **breaking change** removed ``stable_baselines.ddpg.memory`` in favor of ``stable_baselines.deepq.replay_buffer`` (see fix below)
 - add ``action_noise`` param for SAC, it helps exploration for problem with deceptive reward
 - removed unused dependencies (tdqm, dill, progressbar2, seaborn, glob2, click)
 - Bugfix for ``VecEnvWrapper.__getattr__`` which enables access to class attributes inherited from parent classes.
@@ -22,6 +22,27 @@ Pre-Release 2.6.0a0 (WIP)
 - The parameter ``filter_size`` of the function ``conv`` in A2C utils now supports passing a list/tuple of two integers (height and width), in order to have non-squared kernel matrix. (@yutingsz)
 - add ``random_exploration`` parameter for DDPG and SAC, it may be useful when using HER + DDPG/SAC
   this hack was present in the original OpenAI Baselines DDPG + HER implementation.
+
+
+**Breaking Change:** DDPG replay buffer was unified with DQN/SAC replay buffer. As a result,
+when loading a DDPG model trained with stable_baselines<2.6.0, it throws an import error.
+You can fix that using:
+
+.. code-block:: python
+
+  import sys
+  import pkg_resources
+
+  import stable_baselines
+
+  # Fix for breaking change for DDPG buffer in v2.6.0
+  if pkg_resources.get_distribution("stable_baselines").version >= "2.6.0":
+      sys.modules['stable_baselines.ddpg.memory'] = stable_baselines.deepq.replay_buffer
+      stable_baselines.deepq.replay_buffer.Memory = stable_baselines.deepq.replay_buffer.ReplayBuffer
+
+
+We recommend you to save again the model afterward, so the fix won't be needed the next time the trained agent is loaded.
+
 
 
 Release 2.5.1 (2019-05-04)
