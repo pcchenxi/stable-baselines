@@ -174,6 +174,9 @@ class DDPG(OffPolicyRLModel):
             Use `buffer_size` instead.
 
     :param buffer_size: (int) the max number of transitions to store, size of the replay buffer
+    :param random_exploration: (float) Probability of taken a random action (as in an epsilon-greedy strategy)
+        This is not needed for DDPG normally but can help exploring when using HER + DDPG.
+        This hack was present in the original OpenAI Baselines repo (DDPG + HER)
     :param verbose: (int) the verbosity level: 0 none, 1 training information, 2 tensorflow debug
     :param tensorboard_log: (str) the log location for tensorboard (if None, no logging)
     :param _init_setup_model: (bool) Whether or not to build the network at the creation of the instance
@@ -187,7 +190,7 @@ class DDPG(OffPolicyRLModel):
                  normalize_observations=False, tau=0.001, batch_size=128, param_noise_adaption_interval=50,
                  normalize_returns=False, enable_popart=False, observation_range=(-5., 5.), critic_l2_reg=0.,
                  return_range=(-np.inf, np.inf), actor_lr=1e-4, critic_lr=1e-3, clip_norm=None, reward_scale=1.,
-                 render=False, render_eval=False, memory_limit=None, buffer_size=50000,
+                 render=False, render_eval=False, memory_limit=None, buffer_size=50000, random_exploration=0.0,
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False):
 
@@ -233,6 +236,7 @@ class DDPG(OffPolicyRLModel):
         self.buffer_size = buffer_size
         self.tensorboard_log = tensorboard_log
         self.full_tensorboard_log = full_tensorboard_log
+        self.random_exploration = random_exploration
 
         # init
         self.graph = None
@@ -853,7 +857,15 @@ class DDPG(OffPolicyRLModel):
                             # Execute next action.
                             if rank == 0 and self.render:
                                 self.env.render()
-                            new_obs, reward, done, info = self.env.step(action * np.abs(self.action_space.low))
+
+                            # Randomly sample actions from a uniform distribution
+                            # with a probabilty self.random_exploration (used in HER + DDPG)
+                            if np.random.rand() < self.random_exploration:
+                                rescaled_action = action = self.action_space.sample()
+                            else:
+                                rescaled_action = action * np.abs(self.action_space.low)
+
+                            new_obs, reward, done, info = self.env.step(rescaled_action)
 
                             if writer is not None:
                                 ep_rew = np.array([reward]).reshape((1, -1))
@@ -1057,6 +1069,7 @@ class DDPG(OffPolicyRLModel):
             "reward_scale": self.reward_scale,
             "memory_limit": self.memory_limit,
             "buffer_size": self.buffer_size,
+            "random_exploration": self.random_exploration,
             "policy": self.policy,
             "n_envs": self.n_envs,
             "_vectorize_action": self._vectorize_action,

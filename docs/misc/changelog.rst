@@ -20,6 +20,9 @@ Pre-Release 2.6.0a0 (WIP)
 - Removed ``get_available_gpus`` function which hadn't been used anywhere (@Pastafarianist)
 - Fixed path splitting in ``TensorboardWriter._get_latest_run_id()`` on Windows machines (@PatrickWalter214)
 - The parameter ``filter_size`` of the function ``conv`` in A2C utils now supports passing a list/tuple of two integers (height and width), in order to have non-squared kernel matrix. (@yutingsz)
+- add ``random_exploration`` parameter for DDPG and SAC, it may be useful when using HER + DDPG/SAC
+  this hack was present in the original OpenAI Baselines DDPG + HER implementation.
+
 
 Release 2.5.1 (2019-05-04)
 --------------------------

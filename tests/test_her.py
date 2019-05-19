@@ -36,8 +36,10 @@ def model_predict(model, env, n_steps, additional_check=None):
 def test_her(model_class, goal_selection_strategy):
     env = BitFlippingEnv(N_BITS, continuous=model_class in [DDPG, SAC], max_steps=N_BITS)
 
+    # Take random actions 10% of the time
+    kwargs = {'random_exploration': 0.1} if model_class in [DDPG, SAC] else {}
     model = HER('MlpPolicy', env, model_class, n_sampled_goal=4, goal_selection_strategy=goal_selection_strategy,
-                verbose=0)
+                verbose=0, **kwargs)
     model.learn(1000)
 
 
